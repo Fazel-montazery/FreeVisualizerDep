@@ -4,9 +4,30 @@
 
 #include <mpg123.h>
 
+#define BUFFER_SIZE 4096
+
 static SDL_Window *window = NULL;
 static const Uint32 winWidth = 1000;
 static const Uint32 winHeight = 1000;
+
+static mpg123_handle *mh = NULL;
+static SDL_AudioStream *stream = NULL;
+
+// Audio decoding callback
+void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) 
+{
+        unsigned char buffer[BUFFER_SIZE];
+        size_t done;
+
+        int err = mpg123_read(mh, buffer, BUFFER_SIZE, &done);
+        if (err == MPG123_OK || err == MPG123_DONE) {
+                if (done > 0) {
+                        SDL_PutAudioStreamData(stream, buffer, done);
+                }
+        } else {
+                SDL_Log("Error decoding MP3: %s", mpg123_strerror(mh));
+        }
+}
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
@@ -34,7 +55,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
                 return SDL_APP_FAILURE;
         }
 
-        mpg123_handle *mh = mpg123_new(NULL, NULL);
+        mh = mpg123_new(NULL, NULL);
         if (!mh) {
 		SDL_Log("Couldn't create mpg123 handle");
                 return SDL_APP_FAILURE;
@@ -42,7 +63,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
         if (mpg123_open(mh, music_path) != MPG123_OK) {
 		SDL_Log("Couldn't open mp3 file: %s", music_path);
-                mpg123_delete(mh);
                 return 1;
         }
 
@@ -50,12 +70,24 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         int channels, encoding;
         if (mpg123_getformat(mh, &rate, &channels, &encoding) != MPG123_OK) {
 		SDL_Log("Couldn't get audio format");
-                mpg123_close(mh);
-                mpg123_delete(mh);
                 return 1;
         }
 
-        SDL_Log("Audio format: %ld Hz, %d channels, encoding: %d\n", rate, channels, encoding);
+        SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", rate, channels, encoding);
+
+        SDL_AudioSpec spec = {
+                .channels = channels,
+                .format = SDL_AUDIO_S16,
+                .freq = rate
+        };
+
+        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
+        if (!stream) {
+                SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
+                return SDL_APP_FAILURE;
+        }
+
+        SDL_ResumeAudioStreamDevice(stream);
 
 	return SDL_APP_CONTINUE;
 }
@@ -82,5 +114,8 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
+        mpg123_close(mh);
+        mpg123_delete(mh);
         mpg123_exit();
+        SDL_DestroyAudioStream(stream);
 }
