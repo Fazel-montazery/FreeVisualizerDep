@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <math.h>
 #include <mpg123.h>
 
 #include "shader.h"
@@ -17,11 +18,14 @@ typedef struct
 {
         float width, height;
         float time;
+        float peak_amp;
+        float avg_amp;
 } uniformBlock;
 
 static SDL_Window *window = NULL;
-static const Uint32 winWidth = 1000;
-static const Uint32 winHeight = 1000;
+static Sint32 winWidth = 1000;
+static Sint32 winHeight = 1000;
+static bool fullscreen = false;
 
 static SDL_GPUDevice* gpuDevice;
 
@@ -30,6 +34,8 @@ static SDL_GPUBuffer* indexBuffer;
 static SDL_GPUGraphicsPipeline* graphicsPipeline;
 
 static double time = 0;
+static float peak_amp = 0;
+static float avg_amp = 0;
 
 static mpg123_handle *mh = NULL;
 static SDL_AudioStream *stream = NULL;
@@ -50,6 +56,25 @@ static void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *strea
         }
 }
 
+// Audio proccessing callback
+static void SDLCALL audio_proccess_callback(void *userdata, const SDL_AudioSpec *spec, float *buffer, int buflen)
+{
+        int num_samples = buflen / sizeof(float);
+        float peak_amplitude = 0.0f;
+        float avg_amplitude = 0.0f;
+        for (int i = 0; i < num_samples; ++i) {
+                float abs_amp = fabs(buffer[i]);
+                avg_amplitude += abs_amp;
+                if (abs_amp > peak_amplitude) {
+                        peak_amplitude = fabs(buffer[i]);
+                }
+        }
+        avg_amplitude /= num_samples;
+
+        avg_amp = avg_amplitude;
+        peak_amp = peak_amplitude;
+}
+
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
@@ -66,7 +91,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	if (!(window = SDL_CreateWindow("FreeVisualizert", winWidth, winHeight, 0))) {
+	if (!(window = SDL_CreateWindow("FreeVisualizert", winWidth, winHeight, SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS))) {
 		SDL_Log("Couldn't create window: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
@@ -250,6 +275,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
                 SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
                 return SDL_APP_FAILURE;
         }
+        SDL_SetAudioPostmixCallback(SDL_GetAudioStreamDevice(stream), audio_proccess_callback, NULL);
 
         SDL_ResumeAudioStreamDevice(stream);
 
@@ -271,6 +297,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
                         } else {
                                 SDL_PauseAudioStreamDevice(stream);
                         }
+                } else if (event->key.scancode == SDL_SCANCODE_F) {
+                        fullscreen = !fullscreen;
+                        SDL_SetWindowFullscreen(window, fullscreen);
                 }
 	}
 
@@ -280,6 +309,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
         time = ((double) SDL_GetTicks()) / 1000.0;
+        SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
 
 	SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
 	if (cmdbuf == NULL)
@@ -309,7 +339,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 		SDL_BindGPUIndexBuffer(renderPass, &(SDL_GPUBufferBinding){ .buffer = indexBuffer, .offset = 0 }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
                 // Uploading uniforms
-                SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {winWidth, winHeight, time} , sizeof(uniformBlock));
+                SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {winWidth, winHeight, time, peak_amp, avg_amp} , sizeof(uniformBlock));
 
 		SDL_DrawGPUIndexedPrimitives(renderPass, 6, 1, 0, 0, 0);
 

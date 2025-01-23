@@ -7,6 +7,8 @@ struct type_UniformBlock
 {
     float2 Resolution;
     float Time;
+    float PeakAmp;
+    float AvgAmp;
 };
 
 struct main0_out
@@ -17,11 +19,50 @@ struct main0_out
 fragment main0_out main0(constant type_UniformBlock& UniformBlock [[buffer(0)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float2 _35 = gl_FragCoord.xy / UniformBlock.Resolution;
-    float2 _38 = _35;
-    _38.y = 1.0 - _35.y;
-    float _39 = _35.x;
-    out.out_var_SV_Target0 = float4(mix(float3(0.0, 1.0, 1.0), float3(0.638999998569488525390625, 0.046999998390674591064453125, 0.046999998390674591064453125), float3(_39, sin(_39), (distance(_38, float2(0.5)) * abs(sin(UniformBlock.Time))) * 2.0)), 1.0);
+    float2 _67 = ((gl_FragCoord.xy * 2.0) - UniformBlock.Resolution) / float2(UniformBlock.Resolution.y);
+    _67.y = -_67.y;
+    float2 _72;
+    float3 _75;
+    int _77;
+    _72 = _67;
+    _75 = float3(0.0);
+    _77 = 0;
+    float2 _73;
+    float3 _76;
+    float _79;
+    for (;;)
+    {
+        _79 = float(_77);
+        if (_79 < 4.0)
+        {
+            _73 = fract(_72 * 2.0) - float2(0.5);
+            float _87 = abs(_73.x) - 0.20000000298023223876953125;
+            float _89 = _73.y + 0.115470059216022491455078125;
+            float _91 = 1.73205077648162841796875 * _89;
+            float2 _101;
+            if ((_87 + _91) > 0.0)
+            {
+                _101 = float2(_87 - _91, ((-1.73205077648162841796875) * _87) - _89) * float2(0.5);
+            }
+            else
+            {
+                _101 = float2(_87, _89);
+            }
+            float2 _105 = _101;
+            _105.x = _101.x - fast::clamp(_101.x, -0.4000000059604644775390625, 0.0);
+            float _113 = length(_67);
+            _76 = powr(float3(0.100000001490116119384765625) / smoothstep(float3(0.0), float3(0.100000001490116119384765625), abs(sin((float3(((-length(_105)) * float(int(sign(_101.y)))) * exp(-_113)) * 10.0) + float3((1.0 - UniformBlock.AvgAmp) * 6.0)) * float3(0.100000001490116119384765625))), float3(1.2999999523162841796875)) * (float3(0.61000001430511474609375, 0.4979999959468841552734375, 0.64999997615814208984375) + (float3(0.388000011444091796875, 0.4979999959468841552734375, 0.3499999940395355224609375) * cos(((float3(0.5299999713897705078125, 0.4979999959468841552734375, 0.62000000476837158203125) * (_113 + (_79 * (1.0 - UniformBlock.PeakAmp)))) + float3(3.4379999637603759765625, 3.01200008392333984375, 4.025000095367431640625)) * 6.283185482025146484375)));
+            _72 = _73;
+            _75 = _76;
+            _77++;
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+    out.out_var_SV_Target0 = float4(_75, 1.0);
     return out;
 }
 
