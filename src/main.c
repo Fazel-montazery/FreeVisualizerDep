@@ -22,23 +22,38 @@ typedef struct
         float avg_amp;
 } uniformBlock;
 
-static SDL_Window *window = NULL;
-static Sint32 winWidth = 1000;
-static Sint32 winHeight = 1000;
-static bool fullscreen = false;
+typedef struct
+{
+        // Windowing
+        SDL_Window* window;
+        Sint32 winWidth;
+        Sint32 winHeight;
+        bool fullscreen;
 
-static SDL_GPUDevice* gpuDevice;
+        // GPU
+        SDL_GPUDevice* gpuDevice;
+        SDL_GPUBuffer* vertexBuffer;
+        SDL_GPUBuffer* indexBuffer;
+        SDL_GPUGraphicsPipeline* graphicsPipeline;
 
-static SDL_GPUBuffer* vertexBuffer;
-static SDL_GPUBuffer* indexBuffer;
-static SDL_GPUGraphicsPipeline* graphicsPipeline;
+        // Audio
+        SDL_AudioStream* stream;
+} State;
+
+#define DEFAULT_STATE \
+    (State) {  \
+        .winWidth = 1000,   	\
+        .winHeight = 1000,	\
+    }
 
 static double time = 0;
 static float peak_amp = 0;
 static float avg_amp = 0;
 
 static mpg123_handle *mh = NULL;
-static SDL_AudioStream *stream = NULL;
+
+// If we want cleanup at exit
+static bool cleanUp = true;
 
 // Audio decoding callback
 static void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount) 
@@ -81,6 +96,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
         if (argc != 2) {
 		SDL_Log("Usage: %s <mp3 file>", argv[0]);
+                cleanUp = false;
 		return SDL_APP_FAILURE;
         }
 
@@ -88,36 +104,48 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 		SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+                cleanUp = false;
 		return SDL_APP_FAILURE;
 	}
 
-	if (!(window = SDL_CreateWindow("FreeVisualizert", winWidth, winHeight, SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS))) {
+        // Initializing app state
+        State state = DEFAULT_STATE;
+        State* statep = SDL_malloc(sizeof(State));
+        if (!statep) {
+		SDL_Log("Couldn't allocate memory for the state of the app: %s", SDL_GetError());
+                cleanUp = false;
+		return SDL_APP_FAILURE;
+        }
+        *appstate = statep;
+
+        const SDL_WindowFlags windowFlags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS;
+	if (!(state.window = SDL_CreateWindow("FreeVisualizer", state.winWidth, state.winHeight, windowFlags))) {
 		SDL_Log("Couldn't create window: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-        gpuDevice = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
-	if (!gpuDevice) {
+        state.gpuDevice = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
+	if (!state.gpuDevice) {
 		SDL_Log("Couldn't create gpuDevice: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
-	SDL_Log("GpuDeviceDriver => %s", SDL_GetGPUDeviceDriver(gpuDevice));
+	SDL_Log("GpuDeviceDriver => %s", SDL_GetGPUDeviceDriver(state.gpuDevice));
 
-	if (!SDL_ClaimWindowForGPUDevice(gpuDevice, window))
+	if (!SDL_ClaimWindowForGPUDevice(state.gpuDevice, state.window))
 	{
-		SDL_Log("GPUClaimWindow failed: %s", SDL_GetError());
+		SDL_Log("Couldn't assign window to GPU: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* vertShader = LoadShader(gpuDevice, "simple.vert", 0, 0, 0, 0);
+	SDL_GPUShader* vertShader = LoadShader(state.gpuDevice, "simple.vert", 0, 0, 0, 0);
 	if (!vertShader) {
-		SDL_Log("Failed to create vertex shader: %s", SDL_GetError());
+		SDL_Log("Couldn't create vertex shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* fragShader = LoadShader(gpuDevice, "simple.frag", 0, 1, 0, 0);
+	SDL_GPUShader* fragShader = LoadShader(state.gpuDevice, "simple.frag", 0, 1, 0, 0);
 	if (!fragShader) {
-		SDL_Log("Failed to create fragment shader: %s", SDL_GetError());
+		SDL_Log("Couldn't create fragment shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
@@ -125,7 +153,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		.target_info = {
 			.num_color_targets = 1,
 			.color_target_descriptions = (SDL_GPUColorTargetDescription[]){{
-				.format = SDL_GetGPUSwapchainTextureFormat(gpuDevice, window),
+				.format = SDL_GetGPUSwapchainTextureFormat(state.gpuDevice, state.window),
 			}},
 		},
 		.vertex_input_state = (SDL_GPUVertexInputState){
@@ -149,25 +177,25 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		.fragment_shader = fragShader
 	};
 
-	graphicsPipeline = SDL_CreateGPUGraphicsPipeline(gpuDevice, &pipelineCreateInfo);
-	if (!graphicsPipeline) {
-		SDL_Log("Failed to create graphics pipeline: %s", SDL_GetError());
+	state.graphicsPipeline = SDL_CreateGPUGraphicsPipeline(state.gpuDevice, &pipelineCreateInfo);
+	if (!state.graphicsPipeline) {
+		SDL_Log("Couldn't create graphics pipeline: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_ReleaseGPUShader(gpuDevice, vertShader);
-	SDL_ReleaseGPUShader(gpuDevice, fragShader);
+	SDL_ReleaseGPUShader(state.gpuDevice, vertShader);
+	SDL_ReleaseGPUShader(state.gpuDevice, fragShader);
 
-	vertexBuffer = SDL_CreateGPUBuffer(
-		gpuDevice,
+	state.vertexBuffer = SDL_CreateGPUBuffer(
+		state.gpuDevice,
 		&(SDL_GPUBufferCreateInfo) {
 			.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
 			.size = sizeof(PositionVertex) * 4
 		}
 	);
 
-	indexBuffer = SDL_CreateGPUBuffer(
-		gpuDevice,
+	state.indexBuffer = SDL_CreateGPUBuffer(
+		state.gpuDevice,
 		&(SDL_GPUBufferCreateInfo) {
 			.usage = SDL_GPU_BUFFERUSAGE_INDEX,
 			.size = sizeof(Uint16) * 6
@@ -175,7 +203,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	);
 
 	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(
-		gpuDevice,
+		state.gpuDevice,
 		&(SDL_GPUTransferBufferCreateInfo) {
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 			.size = (sizeof(PositionVertex) * 4) + (sizeof(Uint16) * 6)
@@ -183,7 +211,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	);
 
 	PositionVertex* transferData = SDL_MapGPUTransferBuffer(
-		gpuDevice,
+		state.gpuDevice,
 		transferBuffer,
 		false
 	);
@@ -201,11 +229,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	indexData[4] = 1;
 	indexData[5] = 3;
 
-	SDL_UnmapGPUTransferBuffer(gpuDevice, transferBuffer);
+	SDL_UnmapGPUTransferBuffer(state.gpuDevice, transferBuffer);
 
-	SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
+	SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(state.gpuDevice);
 	SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
 
 	SDL_UploadToGPUBuffer(
 		copyPass,
@@ -214,7 +241,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 			.offset = 0
 		},
 		&(SDL_GPUBufferRegion) {
-			.buffer = vertexBuffer,
+			.buffer = state.vertexBuffer,
 			.offset = 0,
 			.size = sizeof(PositionVertex) * 4
 		},
@@ -228,7 +255,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 			.offset = sizeof(PositionVertex) * 4
 		},
 		&(SDL_GPUBufferRegion) {
-			.buffer = indexBuffer,
+			.buffer = state.indexBuffer,
 			.offset = 0,
 			.size = sizeof(Uint16) * 6
 		},
@@ -237,7 +264,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
 	SDL_EndGPUCopyPass(copyPass);
 	SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-	SDL_ReleaseGPUTransferBuffer(gpuDevice, transferBuffer);
+	SDL_ReleaseGPUTransferBuffer(state.gpuDevice, transferBuffer);
         
         if (mpg123_init() != MPG123_OK) {
 		SDL_Log("Couldn't initialize mpg123");
@@ -270,20 +297,25 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
                 .freq = rate
         };
 
-        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
-        if (!stream) {
+        state.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
+        if (!state.stream) {
                 SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
                 return SDL_APP_FAILURE;
         }
-        SDL_SetAudioPostmixCallback(SDL_GetAudioStreamDevice(stream), audio_proccess_callback, NULL);
+        SDL_SetAudioPostmixCallback(SDL_GetAudioStreamDevice(state.stream), audio_proccess_callback, NULL);
 
-        SDL_ResumeAudioStreamDevice(stream);
+        SDL_ResumeAudioStreamDevice(state.stream);
+
+        // Assigning state to sdl appstate
+        *statep = state;
 
 	return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
+        State* state = appstate;
+
 	if (event->type == SDL_EVENT_QUIT) {
 		return SDL_APP_SUCCESS;
 	}
@@ -292,14 +324,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 		if (event->key.scancode == SDL_SCANCODE_Q || event->key.scancode == SDL_SCANCODE_ESCAPE) {
 			return SDL_APP_SUCCESS;
 		} else if (event->key.scancode == SDL_SCANCODE_SPACE) {
-                        if (SDL_AudioStreamDevicePaused(stream)) {
-                                SDL_ResumeAudioStreamDevice(stream);
+                        if (SDL_AudioStreamDevicePaused(state->stream)) {
+                                SDL_ResumeAudioStreamDevice(state->stream);
                         } else {
-                                SDL_PauseAudioStreamDevice(stream);
+                                SDL_PauseAudioStreamDevice(state->stream);
                         }
                 } else if (event->key.scancode == SDL_SCANCODE_F) {
-                        fullscreen = !fullscreen;
-                        SDL_SetWindowFullscreen(window, fullscreen);
+                        state->fullscreen = !state->fullscreen;
+                        SDL_SetWindowFullscreen(state->window, state->fullscreen);
                 }
 	}
 
@@ -308,10 +340,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
-        time = ((double) SDL_GetTicks()) / 1000.0;
-        SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
+        State* state = appstate;
 
-	SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(gpuDevice);
+        time = ((double) SDL_GetTicks()) / 1000.0;
+        SDL_GetWindowSizeInPixels(state->window, &state->winWidth, &state->winHeight);
+
+	SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(state->gpuDevice);
 	if (cmdbuf == NULL)
 	{
 		SDL_Log("AcquireGPUCommandBuffer failed: %s", SDL_GetError());
@@ -319,7 +353,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 	}
 
 	SDL_GPUTexture* swapchainTexture;
-	if (!SDL_WaitAndAcquireGPUSwapchainTexture(cmdbuf, window, &swapchainTexture, NULL, NULL)) {
+	if (!SDL_WaitAndAcquireGPUSwapchainTexture(cmdbuf, state->window, &swapchainTexture, NULL, NULL)) {
 		SDL_Log("WaitAndAcquireGPUSwapchainTexture failed: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
@@ -334,12 +368,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdbuf, &colorTargetInfo, 1, NULL);
 
-		SDL_BindGPUGraphicsPipeline(renderPass, graphicsPipeline);
-		SDL_BindGPUVertexBuffers(renderPass, 0, &(SDL_GPUBufferBinding){ .buffer = vertexBuffer, .offset = 0 }, 1);
-		SDL_BindGPUIndexBuffer(renderPass, &(SDL_GPUBufferBinding){ .buffer = indexBuffer, .offset = 0 }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+		SDL_BindGPUGraphicsPipeline(renderPass, state->graphicsPipeline);
+		SDL_BindGPUVertexBuffers(renderPass, 0, &(SDL_GPUBufferBinding){ .buffer = state->vertexBuffer, .offset = 0 }, 1);
+		SDL_BindGPUIndexBuffer(renderPass, &(SDL_GPUBufferBinding){ .buffer = state->indexBuffer, .offset = 0 }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
                 // Uploading uniforms
-                SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {winWidth, winHeight, time, peak_amp, avg_amp} , sizeof(uniformBlock));
+                SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {state->winWidth, state->winHeight, time, peak_amp, avg_amp} , sizeof(uniformBlock));
 
 		SDL_DrawGPUIndexedPrimitives(renderPass, 6, 1, 0, 0, 0);
 
@@ -352,8 +386,14 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
-        mpg123_close(mh);
-        mpg123_delete(mh);
-        mpg123_exit();
-        SDL_DestroyAudioStream(stream);
+        if (cleanUp) {
+                State* state = appstate;
+
+                mpg123_close(mh);
+                mpg123_delete(mh);
+                mpg123_exit();
+                SDL_DestroyAudioStream(state->stream);
+                
+                SDL_free(state);
+        }
 }
