@@ -393,6 +393,13 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
                 mpg123_delete(mh);
                 mpg123_exit();
                 SDL_DestroyAudioStream(state->stream);
+
+                SDL_ReleaseGPUGraphicsPipeline(state->gpuDevice, state->graphicsPipeline);
+                SDL_ReleaseGPUBuffer(state->gpuDevice, state->vertexBuffer);
+                SDL_ReleaseGPUBuffer(state->gpuDevice, state->indexBuffer);
+                SDL_ReleaseWindowFromGPUDevice(state->gpuDevice, state->window);
+                SDL_DestroyGPUDevice(state->gpuDevice);
+                SDL_DestroyWindow(state->window);
                 
                 SDL_free(state);
         }
