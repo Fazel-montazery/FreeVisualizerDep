@@ -1,22 +1,60 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+constant spvUnsafeArray<float2, 4> _24 = spvUnsafeArray<float2, 4>({ float2(-1.0), float2(1.0, -1.0), float2(-1.0, 1.0), float2(1.0) });
 
 struct main0_out
 {
     float4 gl_Position [[position]];
 };
 
-struct main0_in
-{
-    float3 in_var_TEXCOORD0 [[attribute(0)]];
-};
-
-vertex main0_out main0(main0_in in [[stage_in]])
+vertex main0_out main0(uint gl_VertexIndex [[vertex_id]])
 {
     main0_out out = {};
-    out.gl_Position = float4(in.in_var_TEXCOORD0, 1.0);
+    out.gl_Position = float4(_24[gl_VertexIndex], 0.0, 1.0);
     return out;
 }
 

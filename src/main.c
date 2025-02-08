@@ -11,11 +11,6 @@
 
 typedef struct
 {
-	float x, y, z;
-} PositionVertex;
-
-typedef struct
-{
         float width, height;
         float time;
         float peak_amp;
@@ -32,8 +27,6 @@ typedef struct
 
         // GPU
         SDL_GPUDevice* gpuDevice;
-        SDL_GPUBuffer* vertexBuffer;
-        SDL_GPUBuffer* indexBuffer;
         SDL_GPUGraphicsPipeline* graphicsPipeline;
 
         // Audio
@@ -156,23 +149,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 				.format = SDL_GetGPUSwapchainTextureFormat(state.gpuDevice, state.window),
 			}},
 		},
-		.vertex_input_state = (SDL_GPUVertexInputState){
-			.num_vertex_buffers = 1,
-			.vertex_buffer_descriptions = (SDL_GPUVertexBufferDescription[]){{
-				.slot = 0,
-				.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-				.instance_step_rate = 0,
-				.pitch = sizeof(PositionVertex)
-			}},
-			.num_vertex_attributes = 1,
-			.vertex_attributes = (SDL_GPUVertexAttribute[]){{
-				.buffer_slot = 0,
-				.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-				.location = 0,
-				.offset = 0
-			}}
-		},
-		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+		.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
                 .vertex_shader = vertShader,
 		.fragment_shader = fragShader
 	};
@@ -186,86 +163,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	SDL_ReleaseGPUShader(state.gpuDevice, vertShader);
 	SDL_ReleaseGPUShader(state.gpuDevice, fragShader);
 
-	state.vertexBuffer = SDL_CreateGPUBuffer(
-		state.gpuDevice,
-		&(SDL_GPUBufferCreateInfo) {
-			.usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-			.size = sizeof(PositionVertex) * 4
-		}
-	);
-
-	state.indexBuffer = SDL_CreateGPUBuffer(
-		state.gpuDevice,
-		&(SDL_GPUBufferCreateInfo) {
-			.usage = SDL_GPU_BUFFERUSAGE_INDEX,
-			.size = sizeof(Uint16) * 6
-		}
-	);
-
-	SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(
-		state.gpuDevice,
-		&(SDL_GPUTransferBufferCreateInfo) {
-			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-			.size = (sizeof(PositionVertex) * 4) + (sizeof(Uint16) * 6)
-		}
-	);
-
-	PositionVertex* transferData = SDL_MapGPUTransferBuffer(
-		state.gpuDevice,
-		transferBuffer,
-		false
-	);
-
-	transferData[0] = (PositionVertex) { -1, -1, 0 };
-	transferData[1] = (PositionVertex) { 1, -1, 0 };
-	transferData[2] = (PositionVertex) { -1, 1, 0 };
-	transferData[3] = (PositionVertex) { 1, 1, 0 };
-
-	Uint16* indexData = (Uint16*) &transferData[4];
-        indexData[0] = 0;
-	indexData[1] = 1;
-	indexData[2] = 2;
-	indexData[3] = 2;
-	indexData[4] = 1;
-	indexData[5] = 3;
-
-	SDL_UnmapGPUTransferBuffer(state.gpuDevice, transferBuffer);
-
-	SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(state.gpuDevice);
-	SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
-	SDL_UploadToGPUBuffer(
-		copyPass,
-		&(SDL_GPUTransferBufferLocation) {
-			.transfer_buffer = transferBuffer,
-			.offset = 0
-		},
-		&(SDL_GPUBufferRegion) {
-			.buffer = state.vertexBuffer,
-			.offset = 0,
-			.size = sizeof(PositionVertex) * 4
-		},
-		false
-	);
-
-	SDL_UploadToGPUBuffer(
-		copyPass,
-		&(SDL_GPUTransferBufferLocation) {
-			.transfer_buffer = transferBuffer,
-			.offset = sizeof(PositionVertex) * 4
-		},
-		&(SDL_GPUBufferRegion) {
-			.buffer = state.indexBuffer,
-			.offset = 0,
-			.size = sizeof(Uint16) * 6
-		},
-		false
-	);
-
-	SDL_EndGPUCopyPass(copyPass);
-	SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-	SDL_ReleaseGPUTransferBuffer(state.gpuDevice, transferBuffer);
-        
         if (mpg123_init() != MPG123_OK) {
 		SDL_Log("Couldn't initialize mpg123");
                 return SDL_APP_FAILURE;
@@ -358,7 +255,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 		return SDL_APP_FAILURE;
 	}
 
-	if (swapchainTexture != NULL)
+        if (swapchainTexture != NULL)
 	{
 		SDL_GPUColorTargetInfo colorTargetInfo = { 0 };
 		colorTargetInfo.texture = swapchainTexture;
@@ -367,15 +264,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 		colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdbuf, &colorTargetInfo, 1, NULL);
-
 		SDL_BindGPUGraphicsPipeline(renderPass, state->graphicsPipeline);
-		SDL_BindGPUVertexBuffers(renderPass, 0, &(SDL_GPUBufferBinding){ .buffer = state->vertexBuffer, .offset = 0 }, 1);
-		SDL_BindGPUIndexBuffer(renderPass, &(SDL_GPUBufferBinding){ .buffer = state->indexBuffer, .offset = 0 }, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
                 // Uploading uniforms
                 SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {state->winWidth, state->winHeight, time, peak_amp, avg_amp} , sizeof(uniformBlock));
 
-		SDL_DrawGPUIndexedPrimitives(renderPass, 6, 1, 0, 0, 0);
+		SDL_DrawGPUPrimitives(renderPass, 4, 1, 0, 0);
 
 		SDL_EndGPURenderPass(renderPass);
 	}
@@ -395,8 +289,6 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
                 SDL_DestroyAudioStream(state->stream);
 
                 SDL_ReleaseGPUGraphicsPipeline(state->gpuDevice, state->graphicsPipeline);
-                SDL_ReleaseGPUBuffer(state->gpuDevice, state->vertexBuffer);
-                SDL_ReleaseGPUBuffer(state->gpuDevice, state->indexBuffer);
                 SDL_ReleaseWindowFromGPUDevice(state->gpuDevice, state->window);
                 SDL_DestroyGPUDevice(state->gpuDevice);
                 SDL_DestroyWindow(state->window);
