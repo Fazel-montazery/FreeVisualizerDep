@@ -2,7 +2,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <unistd.h>
 #include <math.h>
+
 #include <mpg123.h>
 
 #include "shader.h"

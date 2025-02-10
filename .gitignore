@@ -1,4 +1,5 @@
 *.out
+fv
 bin/
 *.mp3
 run.sh
