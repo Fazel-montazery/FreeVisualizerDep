@@ -8,6 +8,7 @@
 #include "shader.h"
 
 #define BUFFER_SIZE 4096
+#define PATH_SIZE 1024
 
 typedef struct
 {

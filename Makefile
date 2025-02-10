@@ -1,4 +1,4 @@
-src := src/main.c src/shader.c
+src := src/main.c src/shader.c src/fs.c
 libs := -lSDL3 -lmpg123
 target := FreeVisualizer.out
 cc := gcc
