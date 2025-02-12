@@ -2,12 +2,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include <unistd.h>
 #include <math.h>
 
 #include <mpg123.h>
 
 #include "shader.h"
+#include "opts.h"
 
 #define BUFFER_SIZE 4096
 #define PATH_SIZE 1024
@@ -34,6 +34,9 @@ typedef struct
 
 	// Audio
 	SDL_AudioStream* stream;
+
+	// Command-line options
+	OptState optState;
 } State;
 
 #define DEFAULT_STATE \
@@ -90,13 +93,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
 
-	if (argc != 2) {
-		SDL_Log("Usage: %s <mp3 file>", argv[0]);
+	OptState optState;
+	if (!parseOpts(argc, argv, &optState)) {
 		cleanUp = false;
-		return SDL_APP_FAILURE;
+		return SDL_APP_SUCCESS;
 	}
-
-	const char* music_path = argv[1];
 
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
 		SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
@@ -177,8 +178,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	if (mpg123_open(mh, music_path) != MPG123_OK) {
-		SDL_Log("Couldn't open mp3 file: %s", music_path);
+	if (mpg123_open(mh, optState.musicPath) != MPG123_OK) {
+		SDL_Log("Couldn't open mp3 file: %s", optState.musicPath);
 		return 1;
 	}
 
@@ -207,6 +208,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	SDL_ResumeAudioStreamDevice(state.stream);
 
 	// Assigning state to sdl appstate
+	state.optState = optState;
 	*statep = state;
 
 	return SDL_APP_CONTINUE;

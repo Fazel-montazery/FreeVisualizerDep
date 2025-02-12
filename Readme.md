@@ -31,5 +31,13 @@ sudo make uninstall
 ```
 ## Usage
 ```bash
-fv <mp3 file>
+fv [OPTIONS] <mp3 file>
+```
+### Options
+```
+-h, --help				Print help
+-s, --scene				Which scene(shader) to use
+--ls                    list scenes
+--yt                    Search and listen to music online (from youtube)
+--lm                    list downloaded musics
 ```
