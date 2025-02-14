@@ -20,9 +20,10 @@ freely, subject to the following restrictions:
 
 #include "SDL3/SDL.h"
 
-SDL_GPUShader* LoadShader(
+SDL_GPUShader* loadShader(
 	SDL_GPUDevice* device,
-	const char* shaderFilename,
+	SDL_GPUShaderStage stage,
+	const char* shaderPath,
 	Uint32 samplerCount,
 	Uint32 uniformBufferCount,
 	Uint32 storageBufferCount,

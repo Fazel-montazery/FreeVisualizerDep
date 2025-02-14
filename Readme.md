@@ -37,7 +37,7 @@ fv [OPTIONS] <mp3 file>
 ```
 -h, --help				Print help
 -s, --scene				Which scene(shader) to use
---ls                    list scenes
+-L, --ls                list scenes
 --yt                    Search and listen to music online (from youtube)
 --lm                    list downloaded musics
 ```

@@ -2,15 +2,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include <math.h>
-
 #include <mpg123.h>
 
 #include "shader.h"
 #include "opts.h"
 
 #define BUFFER_SIZE 4096
-#define PATH_SIZE 1024
 
 typedef struct
 {
@@ -34,9 +31,6 @@ typedef struct
 
 	// Audio
 	SDL_AudioStream* stream;
-
-	// Command-line options
-	OptState optState;
 } State;
 
 #define DEFAULT_STATE \
@@ -77,10 +71,10 @@ static void SDLCALL audio_proccess_callback(void *userdata, const SDL_AudioSpec 
 	float peak_amplitude = 0.0f;
 	float avg_amplitude = 0.0f;
 	for (int i = 0; i < num_samples; ++i) {
-		float abs_amp = fabs(buffer[i]);
+		float abs_amp = SDL_fabs(buffer[i]);
 		avg_amplitude += abs_amp;
 		if (abs_amp > peak_amplitude) {
-			peak_amplitude = fabs(buffer[i]);
+			peak_amplitude = SDL_fabs(buffer[i]);
 		}
 	}
 	avg_amplitude /= num_samples;
@@ -93,6 +87,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
 
+	// Handling cli arguments
 	OptState optState;
 	if (!parseOpts(argc, argv, &optState)) {
 		cleanUp = false;
@@ -134,13 +129,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* vertShader = LoadShader(state.gpuDevice, "simple.vert", 0, 0, 0, 0);
+	SDL_GPUShader* vertShader = loadShader(state.gpuDevice, SDL_GPU_SHADERSTAGE_VERTEX, "simple.vert", 0, 0, 0, 0);
 	if (!vertShader) {
 		SDL_Log("Couldn't create vertex shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* fragShader = LoadShader(state.gpuDevice, "simple.frag", 0, 1, 0, 0);
+	SDL_GPUShader* fragShader = loadShader(state.gpuDevice,SDL_GPU_SHADERSTAGE_FRAGMENT,  "simple.frag", 0, 1, 0, 0);
 	if (!fragShader) {
 		SDL_Log("Couldn't create fragment shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
@@ -208,7 +203,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	SDL_ResumeAudioStreamDevice(state.stream);
 
 	// Assigning state to sdl appstate
-	state.optState = optState;
 	*statep = state;
 
 	return SDL_APP_CONTINUE;

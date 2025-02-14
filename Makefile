@@ -7,7 +7,7 @@ DATADIR ?= ${USR_HOME}/.FreeVisualizer
 SHADERDIR := ${DATADIR}/shaders
 TARGET := fv
 
-src := src/main.c src/shader.c src/fs.c src/opts.c
+src := src/main.c src/shader.c src/opts.c
 libs := -lSDL3 -lmpg123
 cc := gcc
 
