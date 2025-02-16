@@ -41,6 +41,9 @@ static mpg123_handle *mh = NULL;
 // If we want cleanup at exit
 static bool cleanUp = true;
 
+// Is music still playing
+static bool musicDone = false;
+
 // Audio decoding callback
 static void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
@@ -51,6 +54,8 @@ static void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *strea
 	if (err == MPG123_OK || err == MPG123_DONE) {
 		if (done > 0) {
 			SDL_PutAudioStreamData(stream, buffer, done);
+		} else {
+			musicDone = true;
 		}
 	} else {
 		SDL_Log("Error decoding MP3: %s", mpg123_strerror(mh));
@@ -233,6 +238,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+	if (musicDone) return SDL_APP_SUCCESS;
+
 	State* state = appstate;
 
 	time = ((double) SDL_GetTicks()) / 1000.0;
