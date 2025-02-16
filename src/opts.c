@@ -2,7 +2,7 @@
 
 #define OP_STRING "hs:L"
 
-static SDL_EnumerationResult SDLCALL log_dir_files(void *userdata, const char *dirname, const char *fname)
+static SDL_EnumerationResult SDLCALL log_scenes(void *userdata, const char *dirname, const char *fname)
 {
 	if (!fname) return SDL_ENUM_CONTINUE;
 
@@ -68,6 +68,7 @@ bool parseOpts( int argc,
 		return false;
 	}
 
+	bool sceneSet = false;
 	int opt;
 	int indx = 0;
 
@@ -97,7 +98,7 @@ bool parseOpts( int argc,
 				SDL_Log("Scene Doesn't exist!\n"
 					"Available scenes:\n");
 
-				if (!SDL_EnumerateDirectory(shaderDir, log_dir_files, NULL)) {
+				if (!SDL_EnumerateDirectory(shaderDir, log_scenes, NULL)) {
 					SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
 					return false;
 				}
@@ -105,11 +106,12 @@ bool parseOpts( int argc,
 			}
 
 			SDL_snprintf(fragShaderPathBuf, PATH_SIZE, "%s/%s", shaderDir, sceneName);
+			sceneSet = true;
 
 			break;
 
 		case 'L':
-			if (!SDL_EnumerateDirectory(shaderDir, log_dir_files, NULL)) {
+			if (!SDL_EnumerateDirectory(shaderDir, log_scenes, NULL)) {
 				SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
 				return false;
 			}
@@ -124,6 +126,18 @@ bool parseOpts( int argc,
 	}
 
 	SDL_snprintf(vertShaderPathBuf, PATH_SIZE, "%s/%s", shaderDir, VERT_SHADER_NAME);
+	if (!sceneSet) { // TODO: Check if it's a file or directory
+		int count = 0;
+		char** files = SDL_GlobDirectory(shaderDir, "*" SHADER_EXT, SDL_GLOB_CASEINSENSITIVE, &count);
+		if (!files) {
+			SDL_Log("Couldn't fetch scenes: %s\n", SDL_GetError());
+			return false;
+		}
+		
+		SDL_snprintf(fragShaderPathBuf, PATH_SIZE, "%s/%s", shaderDir, files[SDL_rand(count)]);
+
+		SDL_free(files);
+	}
 
 	if (optind < argc) {
 		*musicPath = argv[optind];

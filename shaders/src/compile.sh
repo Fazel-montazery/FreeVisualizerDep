@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 #Copyright (C) 2024 Caleb Cornett <caleb.cornett@outlook.com>
 
