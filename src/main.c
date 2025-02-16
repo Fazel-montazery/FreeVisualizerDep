@@ -4,10 +4,9 @@
 
 #include <mpg123.h>
 
+#include "defs.h"
 #include "shader.h"
 #include "opts.h"
-
-#define BUFFER_SIZE 4096
 
 typedef struct
 {
@@ -33,12 +32,6 @@ typedef struct
 	SDL_AudioStream* stream;
 } State;
 
-#define DEFAULT_STATE \
-    (State) {  \
-	.winWidth = 1000,	\
-	.winHeight = 1000,	\
-    }
-
 static double time = 0;
 static float peak_amp = 0;
 static float avg_amp = 0;
@@ -51,10 +44,10 @@ static bool cleanUp = true;
 // Audio decoding callback
 static void SDLCALL audio_stream_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
-	unsigned char buffer[BUFFER_SIZE];
+	unsigned char buffer[MUSIC_BUFFER_SIZE];
 	size_t done;
 
-	int err = mpg123_read(mh, buffer, BUFFER_SIZE, &done);
+	int err = mpg123_read(mh, buffer, MUSIC_BUFFER_SIZE, &done);
 	if (err == MPG123_OK || err == MPG123_DONE) {
 		if (done > 0) {
 			SDL_PutAudioStreamData(stream, buffer, done);
@@ -87,9 +80,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
 
+	// paths
+	char* musicPath = NULL;
+	char fragShaderPath[PATH_SIZE] = { 0 };
+	char vertShaderPath[PATH_SIZE] = { 0 };
+
 	// Handling cli arguments
-	OptState optState;
-	if (!parseOpts(argc, argv, &optState)) {
+	if (!parseOpts(argc, argv, &musicPath, fragShaderPath, vertShaderPath, PATH_SIZE)) {
 		cleanUp = false;
 		return SDL_APP_SUCCESS;
 	}
@@ -129,13 +126,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* vertShader = loadShader(state.gpuDevice, SDL_GPU_SHADERSTAGE_VERTEX, "simple.vert", 0, 0, 0, 0);
+	SDL_GPUShader* vertShader = loadShader(state.gpuDevice, SDL_GPU_SHADERSTAGE_VERTEX, vertShaderPath, 0, 0, 0, 0);
 	if (!vertShader) {
 		SDL_Log("Couldn't create vertex shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* fragShader = loadShader(state.gpuDevice,SDL_GPU_SHADERSTAGE_FRAGMENT,  "simple.frag", 0, 1, 0, 0);
+	SDL_GPUShader* fragShader = loadShader(state.gpuDevice,SDL_GPU_SHADERSTAGE_FRAGMENT,  fragShaderPath, 0, 1, 0, 0);
 	if (!fragShader) {
 		SDL_Log("Couldn't create fragment shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
@@ -173,8 +170,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	if (mpg123_open(mh, optState.musicPath) != MPG123_OK) {
-		SDL_Log("Couldn't open mp3 file: %s", optState.musicPath);
+	if (mpg123_open(mh, musicPath) != MPG123_OK) {
+		SDL_Log("Couldn't open mp3 file: %s", musicPath);
 		return 1;
 	}
 

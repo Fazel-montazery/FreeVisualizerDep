@@ -1,20 +1,8 @@
 #include "opts.h"
 
-#define PATH_SIZE 512
-#define DATA_DIR ".FreeVisualizer"
-#define SHADER_DIR "shaders"
-
-#if defined(_WIN32) || defined(_WIN64)
-#define SHADER_EXT ".frag.dxil"
-#elif defined(APPLE)
-#define SHADER_EXT ".frag.msl"
-#else
-#define SHADER_EXT ".frag.spv"
-#endif
-
 #define OP_STRING "hs:L"
 
-static SDL_EnumerationResult SDLCALL directory_enum_callback(void *userdata, const char *dirname, const char *fname)
+static SDL_EnumerationResult SDLCALL log_dir_files(void *userdata, const char *dirname, const char *fname)
 {
 	if (!fname) return SDL_ENUM_CONTINUE;
 
@@ -37,15 +25,49 @@ static SDL_EnumerationResult SDLCALL directory_enum_callback(void *userdata, con
 	return SDL_ENUM_CONTINUE;
 }
 
+static bool fileExists = false; // FOR_LATER: WTF IS THIS? GET RID OF GLOBAL
+static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char *dirname, const char *fname)
+{
+	if (!fname) return SDL_ENUM_CONTINUE;
+
+	char* fragShaderPathBuf = userdata;
+	if (strcmp(fname, fragShaderPathBuf) == 0) {
+		fileExists = true;
+		return SDL_ENUM_SUCCESS;
+	}
+
+	return SDL_ENUM_CONTINUE;
+}
+
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
-	{"scene", 1, 0, 's'},
+	{"scene", required_argument, 0, 's'},
 	{"ls", no_argument, 0, 'L'},
 	{0, 0, 0, 0}
 };
 
-bool parseOpts(int argc, char *argv[], OptState* res)
+bool parseOpts( int argc, 
+		char *argv[],
+		char** musicPath,
+		char* fragShaderPathBuf,
+		char* vertShaderPathBuf,
+		size_t bufferSiz
+)
 {
+	const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
+	if (!home) {
+		SDL_Log("Couldn't retrive home directory: %s\n", SDL_GetError());
+		return false;
+	}
+
+	char shaderDir[PATH_SIZE] = { 0 };
+	SDL_snprintf(shaderDir, PATH_SIZE, "%s%s/%s", home, DATA_DIR, SHADER_DIR);
+	
+	if (!SDL_CreateDirectory(shaderDir)) {
+		SDL_Log("Couldn't retrive/create shader directory: %s\n", SDL_GetError());
+		return false;
+	}
+
 	int opt;
 	int indx = 0;
 
@@ -63,25 +85,34 @@ bool parseOpts(int argc, char *argv[], OptState* res)
 			return false;
 
 		case 's':
+			fileExists = false;
+			char sceneName[PATH_SIZE] = { 0 };
+			SDL_snprintf(sceneName, PATH_SIZE, "%s%s", optarg, SHADER_EXT);
+			if (!SDL_EnumerateDirectory(shaderDir, check_file_exist, sceneName)) {
+				SDL_Log("Couldn't fetch scenes: %s\n", SDL_GetError());
+				return false;
+			}
+
+			if (!fileExists) {
+				SDL_Log("Scene Doesn't exist!\n"
+					"Available scenes:\n");
+
+				if (!SDL_EnumerateDirectory(shaderDir, log_dir_files, NULL)) {
+					SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
+					return false;
+				}
+				return false;
+			}
+
+			SDL_snprintf(fragShaderPathBuf, PATH_SIZE, "%s/%s", shaderDir, sceneName);
+
 			break;
 
 		case 'L':
-			const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
-			if (!home) {
-				SDL_Log("Couldn't retrive home directory: %s\n", SDL_GetError());
+			if (!SDL_EnumerateDirectory(shaderDir, log_dir_files, NULL)) {
+				SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
+				return false;
 			}
-
-			char shaderDir[PATH_SIZE];
-			SDL_snprintf(shaderDir, PATH_SIZE, "%s/%s/%s", home, DATA_DIR, SHADER_DIR);
-			
-			if (!SDL_CreateDirectory(shaderDir)) {
-				SDL_Log("Couldn't retrive/create shader directory: %s\n", SDL_GetError());
-			}
-
-			if (!SDL_EnumerateDirectory(shaderDir, directory_enum_callback, NULL)) {
-				SDL_Log("Couldn't list shaders: %s\n", SDL_GetError());
-			}
-
 			return false;
 
 		case '?':
@@ -92,8 +123,10 @@ bool parseOpts(int argc, char *argv[], OptState* res)
 		}
 	}
 
+	SDL_snprintf(vertShaderPathBuf, PATH_SIZE, "%s/%s", shaderDir, VERT_SHADER_NAME);
+
 	if (optind < argc) {
-		res->musicPath = argv[optind];
+		*musicPath = argv[optind];
 	} else {
 		SDL_Log("Usage: %s [OPTIONS] <mp3 file>\n"
 			"run '%s -h' for help\n", argv[0], argv[0]);

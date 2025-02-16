@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #Copyright (C) 2024 Caleb Cornett <caleb.cornett@outlook.com>
 
 for filename in *.vert.hlsl; do
