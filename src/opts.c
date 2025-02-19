@@ -1,7 +1,5 @@
 #include "opts.h"
 
-#define OP_STRING "hs:L"
-
 static SDL_EnumerationResult SDLCALL log_scenes(void *userdata, const char *dirname, const char *fname)
 {
 	if (!fname) return SDL_ENUM_CONTINUE;
@@ -39,12 +37,17 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
+#define OP_STRING "hs:LS:"
+
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
 	{"scene", required_argument, 0, 's'},
 	{"ls", no_argument, 0, 'L'},
+	{"yt-search", required_argument, 0, 'S'},
 	{0, 0, 0, 0}
 };
+
+#define SEARCH_COMMAND "yt-dlp ytsearch10:'%s' --get-title"
 
 bool parseOpts( int argc, 
 		char *argv[],
@@ -82,7 +85,8 @@ bool parseOpts( int argc,
 					"Options:\n", argv[0]);
 			SDL_Log("  %-20s%s\n", "-h, --help", "Print this help message");
 			SDL_Log("  %-20s%s\n", "-s, --scene", "Which scene(shader) to use");
-			SDL_Log("  %-20s%s\n", "-L, --ls", "list scenes");
+			SDL_Log("  %-20s%s\n", "-L, --ls", "List scenes");
+			SDL_Log("  %-20s%s\n", "-S, --yt-search", "Search youtube and return 10 results");
 			return false;
 
 		case 's':
@@ -115,6 +119,28 @@ bool parseOpts( int argc,
 				SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
 				return false;
 			}
+			return false;
+
+		case 'S':
+			char search[PATH_SIZE] = { 0 };
+			SDL_snprintf(search, PATH_SIZE, SEARCH_COMMAND, optarg);
+			FILE* out = popen(search, "r");
+			
+			if (!out) {
+				SDL_Log("Couldn't search the youtube: %s\n", strerror(errno));
+				return false;
+			}
+
+			int ch;
+			while ((ch = fgetc(out)) != EOF) {
+				if (fputc(ch, stdout) == EOF) {
+					SDL_Log("Error writing: %s\n", strerror(errno));
+					pclose(out);
+					return false;
+				}
+			}
+
+			pclose(out);
 			return false;
 
 		case '?':
