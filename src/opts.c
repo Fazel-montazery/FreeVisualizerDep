@@ -23,7 +23,7 @@ static SDL_EnumerationResult SDLCALL log_scenes(void *userdata, const char *dirn
 	return SDL_ENUM_CONTINUE;
 }
 
-static bool fileExists = false; // FOR_LATER: WTF IS THIS? GET RID OF GLOBAL
+static bool fileExists = false; // TODO: WTF IS THIS? GET RID OF GLOBAL
 static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char *dirname, const char *fname)
 {
 	if (!fname) return SDL_ENUM_CONTINUE;
@@ -47,7 +47,23 @@ static const struct option opts[] = {
 	{0, 0, 0, 0}
 };
 
-#define SEARCH_COMMAND "yt-dlp ytsearch10:'%s' --get-title"
+#define SEARCH_COMMAND "yt-dlp ytsearch10:'%s official music' --get-title"
+
+static const char loadingChars[] = {'/', '-', '\\'};
+static int loadingCharIndx = 0;
+static volatile bool loading_should_exit = false;
+static int SDLCALL loading(void *data)
+{
+	loading_should_exit = false;
+	while (!loading_should_exit) {
+		fputc(loadingChars[loadingCharIndx % 3], stdout);
+		fputc('\r', stdout);
+		fflush(stdout);
+		SDL_Delay(200);
+		loadingCharIndx++;
+	}
+	return 0;
+}
 
 bool parseOpts( int argc, 
 		char *argv[],
@@ -122,12 +138,16 @@ bool parseOpts( int argc,
 			return false;
 
 		case 'S':
+			SDL_Thread* loadingThread =  SDL_CreateThread(loading, "loading", NULL);
+
 			char search[PATH_SIZE] = { 0 };
 			SDL_snprintf(search, PATH_SIZE, SEARCH_COMMAND, optarg);
 			FILE* out = popen(search, "r");
 			
 			if (!out) {
 				SDL_Log("Couldn't search the youtube: %s\n", strerror(errno));
+				loading_should_exit = true;
+				SDL_WaitThread(loadingThread, NULL);
 				return false;
 			}
 
@@ -136,10 +156,14 @@ bool parseOpts( int argc,
 				if (fputc(ch, stdout) == EOF) {
 					SDL_Log("Error writing: %s\n", strerror(errno));
 					pclose(out);
+					loading_should_exit = true;
+					SDL_WaitThread(loadingThread, NULL);
 					return false;
 				}
 			}
 
+			loading_should_exit = true;
+			SDL_WaitThread(loadingThread, NULL);
 			pclose(out);
 			return false;
 
