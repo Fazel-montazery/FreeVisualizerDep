@@ -46,7 +46,7 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
-#define OP_STRING "hs:LS:d:M"
+#define OP_STRING "hs:LS:d:Mm:"
 
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
@@ -54,6 +54,7 @@ static const struct option opts[] = {
 	{"ls", no_argument, 0, 'L'},
 	{"yt-search", required_argument, 0, 'S'},
 	{"yt-dl", required_argument, 0, 'd'},
+	{"music", required_argument, 0, 'm'},
 	{"lm", no_argument, 0, 'M'},
 	{0, 0, 0, 0}
 };
@@ -79,7 +80,7 @@ static int SDLCALL loading(void *data)
 
 bool parseOpts( int argc, 
 		char *argv[],
-		char** musicPath,
+		char* musicPath,
 		char* fragShaderPathBuf,
 		char* vertShaderPathBuf,
 		size_t bufferSiz
@@ -108,6 +109,7 @@ bool parseOpts( int argc,
 	}
 
 	bool sceneSet = false;
+	bool musicSet = false;
 	int opt;
 	int indx = 0;
 
@@ -183,6 +185,28 @@ bool parseOpts( int argc,
 
 			return false;
 
+		case 'm':
+			fileExists = false;
+			if (!SDL_EnumerateDirectory(musicDir, check_file_exist, optarg)) {
+				SDL_Log("Couldn't fetch musics: %s\n", SDL_GetError());
+				return false;
+			}
+
+			if (!fileExists) {
+				SDL_Log("Music Doesn't exist!\n"
+					"Available musics:\n");
+
+				if (!SDL_EnumerateDirectory(musicDir, log_files_in_dir, NULL)) {
+					SDL_Log("Couldn't list musics: %s\n", SDL_GetError());
+					return false;
+				}
+				return false;
+			}
+
+			SDL_snprintf(musicPath, PATH_SIZE, "%s/%s", musicDir, optarg);
+			musicSet = true;
+			break;
+
 		case 'M':
 			if (!SDL_EnumerateDirectory(musicDir, log_files_in_dir, NULL)) {
 				SDL_Log("Couldn't list musics: %s\n", SDL_GetError());
@@ -211,8 +235,10 @@ bool parseOpts( int argc,
 		SDL_free(files);
 	}
 
+	if (musicSet) return true;
+
 	if (optind < argc) {
-		*musicPath = argv[optind];
+		SDL_snprintf(musicPath, PATH_SIZE, "%s", argv[optind]);
 	} else {
 		SDL_Log("Usage: %s [OPTIONS] <mp3 file>\n"
 			"run '%s -h' for help\n", argv[0], argv[0]);
