@@ -1,9 +1,8 @@
 #pragma once
 
-#define _POSIX_C_SOURCE 200809L
-
 #include <SDL3/SDL.h>
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>

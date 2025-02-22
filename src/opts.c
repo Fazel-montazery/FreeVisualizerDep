@@ -37,17 +37,19 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
-#define OP_STRING "hs:LS:"
+#define OP_STRING "hs:LS:d:"
 
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
 	{"scene", required_argument, 0, 's'},
 	{"ls", no_argument, 0, 'L'},
 	{"yt-search", required_argument, 0, 'S'},
+	{"yt-dl", required_argument, 0, 'd'},
 	{0, 0, 0, 0}
 };
 
-#define SEARCH_COMMAND "yt-dlp ytsearch10:'%s official music' --get-title"
+#define SEARCH_COMMAND "yt-dlp --no-playlist ytsearch10:'%s official music' --get-title"
+#define DOWNLOAD_COMMAND "yt-dlp -f bestaudio --no-playlist --extract-audio --audio-format mp3 --audio-quality 0 -o '%%(title)s' -P '%s' 'ytsearch: %s official music'"
 
 static const char loadingChars[] = {'/', '-', '\\'};
 static int loadingCharIndx = 0;
@@ -87,6 +89,14 @@ bool parseOpts( int argc,
 		return false;
 	}
 
+	char musicDir[PATH_SIZE] = { 0 };
+	SDL_snprintf(musicDir, PATH_SIZE, "%s%s/%s", home, DATA_DIR, MUSIC_DIR);
+
+	if (!SDL_CreateDirectory(musicDir)) {
+		SDL_Log("Couldn't retrive/create music directory: %s\n", SDL_GetError());
+		return false;
+	}
+
 	bool sceneSet = false;
 	int opt;
 	int indx = 0;
@@ -103,6 +113,7 @@ bool parseOpts( int argc,
 			SDL_Log("  %-20s%s\n", "-s, --scene", "Which scene(shader) to use");
 			SDL_Log("  %-20s%s\n", "-L, --ls", "List scenes");
 			SDL_Log("  %-20s%s\n", "-S, --yt-search", "Search youtube and return 10 results");
+			SDL_Log("  %-20s%s\n", "-d, --yt-dl", "Download the audio of a YouTube video by title");
 			return false;
 
 		case 's':
@@ -142,29 +153,23 @@ bool parseOpts( int argc,
 
 			char search[PATH_SIZE] = { 0 };
 			SDL_snprintf(search, PATH_SIZE, SEARCH_COMMAND, optarg);
-			FILE* out = popen(search, "r");
-			
-			if (!out) {
-				SDL_Log("Couldn't search the youtube: %s\n", strerror(errno));
-				loading_should_exit = true;
-				SDL_WaitThread(loadingThread, NULL);
-				return false;
-			}
 
-			int ch;
-			while ((ch = fgetc(out)) != EOF) {
-				if (fputc(ch, stdout) == EOF) {
-					SDL_Log("Error writing: %s\n", strerror(errno));
-					pclose(out);
-					loading_should_exit = true;
-					SDL_WaitThread(loadingThread, NULL);
-					return false;
-				}
+			if (system(search) == -1) {
+				SDL_Log("Couldn't search youtube: %s\n", strerror(errno));
 			}
 
 			loading_should_exit = true;
 			SDL_WaitThread(loadingThread, NULL);
-			pclose(out);
+			return false;
+
+		case 'd':
+			char download[PATH_SIZE] = { 0 };
+			SDL_snprintf(download, PATH_SIZE, DOWNLOAD_COMMAND, musicDir, optarg);
+
+			if (system(download) == -1) {
+				SDL_Log("Couldn't download from youtube: %s\n", strerror(errno));
+			}
+
 			return false;
 
 		case '?':

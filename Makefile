@@ -39,6 +39,7 @@ clean: ${TARGET}
 	rm ${TARGET}
 
 install: ${TARGET}
+	install -d -m 777 ${DATADIR}
 	install -d ${BINDIR}
 	install -m 755 ${TARGET} ${BINDIR}/${TARGET}
 	install -d ${SHADERDIR}

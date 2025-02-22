@@ -2,9 +2,10 @@
 
 #define MUSIC_BUFFER_SIZE 4096
 
-#define PATH_SIZE 512
+#define PATH_SIZE 1024
 #define DATA_DIR ".FreeVisualizer"
 #define SHADER_DIR "shaders"
+#define MUSIC_DIR "musics"
 
 #if defined(_WIN32) || defined(_WIN64)
 #define VERT_SHADER_NAME "vertex.vert.dxil"
