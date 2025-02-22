@@ -40,5 +40,6 @@ fv [OPTIONS] <mp3 file>
 -L, --ls                List scenes
 -S, --yt-search         Search youtube and return 10 results
 -d, --yt-dl             Download the audio of a YouTube video by title
---lm                    List downloaded musics
+-m, --music             Play one of the downloaded musics
+-M, --lm                List downloaded musics
 ```

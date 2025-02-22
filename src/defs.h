@@ -15,8 +15,6 @@
 #define VERT_SHADER_NAME "vertex.vert.spv"
 #endif
 
-
-
 #if defined(_WIN32) || defined(_WIN64)
 #define SHADER_EXT ".frag.dxil"
 #elif defined(APPLE)

@@ -23,6 +23,15 @@ static SDL_EnumerationResult SDLCALL log_scenes(void *userdata, const char *dirn
 	return SDL_ENUM_CONTINUE;
 }
 
+static SDL_EnumerationResult SDLCALL log_files_in_dir(void *userdata, const char *dirname, const char *fname)
+{
+	if (!fname) return SDL_ENUM_CONTINUE;
+
+	SDL_Log("%s\n", fname);
+
+	return SDL_ENUM_CONTINUE;
+}
+
 static bool fileExists = false; // TODO: WTF IS THIS? GET RID OF GLOBAL
 static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char *dirname, const char *fname)
 {
@@ -37,7 +46,7 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
-#define OP_STRING "hs:LS:d:"
+#define OP_STRING "hs:LS:d:M"
 
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
@@ -45,6 +54,7 @@ static const struct option opts[] = {
 	{"ls", no_argument, 0, 'L'},
 	{"yt-search", required_argument, 0, 'S'},
 	{"yt-dl", required_argument, 0, 'd'},
+	{"lm", no_argument, 0, 'M'},
 	{0, 0, 0, 0}
 };
 
@@ -114,6 +124,8 @@ bool parseOpts( int argc,
 			SDL_Log("  %-20s%s\n", "-L, --ls", "List scenes");
 			SDL_Log("  %-20s%s\n", "-S, --yt-search", "Search youtube and return 10 results");
 			SDL_Log("  %-20s%s\n", "-d, --yt-dl", "Download the audio of a YouTube video by title");
+			SDL_Log("  %-20s%s\n", "-m, --music", "Play one of the downloaded musics");
+			SDL_Log("  %-20s%s\n", "-M, --lm", "List downloaded musics");
 			return false;
 
 		case 's':
@@ -144,7 +156,6 @@ bool parseOpts( int argc,
 		case 'L':
 			if (!SDL_EnumerateDirectory(shaderDir, log_scenes, NULL)) {
 				SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
-				return false;
 			}
 			return false;
 
@@ -170,6 +181,12 @@ bool parseOpts( int argc,
 				SDL_Log("Couldn't download from youtube: %s\n", strerror(errno));
 			}
 
+			return false;
+
+		case 'M':
+			if (!SDL_EnumerateDirectory(musicDir, log_files_in_dir, NULL)) {
+				SDL_Log("Couldn't list musics: %s\n", SDL_GetError());
+			}
 			return false;
 
 		case '?':
