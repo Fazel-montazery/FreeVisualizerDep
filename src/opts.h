@@ -14,9 +14,10 @@
 // returns false if exit condition, else true
 // caller must allocate paths buffers
 // bufferSiz is the size of PathBuffers
+// musicPath is just a pointer, not a buffer. You should pass a char** to it
 bool parseOpts( int argc, 
 		char *argv[],
-		char* musicPath,
+		char** musicPath,
 		char* fragShaderPathBuf,
 		char* vertShaderPathBuf,
 		size_t bufferSiz);

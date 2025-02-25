@@ -86,12 +86,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
 
 	// paths
-	char musicPath[PATH_SIZE] = { 0 };
+	char* musicPath = NULL;
 	char fragShaderPath[PATH_SIZE] = { 0 };
 	char vertShaderPath[PATH_SIZE] = { 0 };
 
 	// Handling cli arguments
-	if (!parseOpts(argc, argv, musicPath, fragShaderPath, vertShaderPath, PATH_SIZE)) {
+	if (!parseOpts(argc, argv, &musicPath, fragShaderPath, vertShaderPath, PATH_SIZE)) {
 		cleanUp = false;
 		return SDL_APP_SUCCESS;
 	}

@@ -23,15 +23,6 @@ static SDL_EnumerationResult SDLCALL log_scenes(void *userdata, const char *dirn
 	return SDL_ENUM_CONTINUE;
 }
 
-static SDL_EnumerationResult SDLCALL log_files_in_dir(void *userdata, const char *dirname, const char *fname)
-{
-	if (!fname) return SDL_ENUM_CONTINUE;
-
-	SDL_Log("%s\n", fname);
-
-	return SDL_ENUM_CONTINUE;
-}
-
 static bool fileExists = false; // TODO: WTF IS THIS? GET RID OF GLOBAL
 static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char *dirname, const char *fname)
 {
@@ -46,21 +37,19 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
-#define OP_STRING "hs:LS:d:Mm:"
+#define OP_STRING "hs:lS:d:"
 
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
 	{"scene", required_argument, 0, 's'},
-	{"ls", no_argument, 0, 'L'},
+	{"ls", no_argument, 0, 'l'},
 	{"yt-search", required_argument, 0, 'S'},
 	{"yt-dl", required_argument, 0, 'd'},
-	{"music", required_argument, 0, 'm'},
-	{"lm", no_argument, 0, 'M'},
 	{0, 0, 0, 0}
 };
 
 #define SEARCH_COMMAND "yt-dlp --no-playlist ytsearch10:'%s official music' --get-title"
-#define DOWNLOAD_COMMAND "yt-dlp -f bestaudio --no-playlist --extract-audio --audio-format mp3 --audio-quality 0 -o '%%(title)s' -P '%s' 'ytsearch: %s official music'"
+#define DOWNLOAD_COMMAND "yt-dlp -f bestaudio --no-playlist --extract-audio --audio-format mp3 --audio-quality 0 -o '%%(title)s' 'ytsearch: %s official music'"
 
 static const char loadingChars[] = {'/', '-', '\\'};
 static int loadingCharIndx = 0;
@@ -80,7 +69,7 @@ static int SDLCALL loading(void *data)
 
 bool parseOpts( int argc, 
 		char *argv[],
-		char* musicPath,
+		char** musicPath,
 		char* fragShaderPathBuf,
 		char* vertShaderPathBuf,
 		size_t bufferSiz
@@ -100,16 +89,7 @@ bool parseOpts( int argc,
 		return false;
 	}
 
-	char musicDir[PATH_SIZE] = { 0 };
-	SDL_snprintf(musicDir, PATH_SIZE, "%s%s/%s", home, DATA_DIR, MUSIC_DIR);
-
-	if (!SDL_CreateDirectory(musicDir)) {
-		SDL_Log("Couldn't retrive/create music directory: %s\n", SDL_GetError());
-		return false;
-	}
-
 	bool sceneSet = false;
-	bool musicSet = false;
 	int opt;
 	int indx = 0;
 
@@ -123,11 +103,9 @@ bool parseOpts( int argc,
 					"Options:\n", argv[0]);
 			SDL_Log("  %-20s%s\n", "-h, --help", "Print this help message");
 			SDL_Log("  %-20s%s\n", "-s, --scene", "Which scene(shader) to use");
-			SDL_Log("  %-20s%s\n", "-L, --ls", "List scenes");
+			SDL_Log("  %-20s%s\n", "-l, --ls", "List scenes");
 			SDL_Log("  %-20s%s\n", "-S, --yt-search", "Search youtube and return 10 results");
 			SDL_Log("  %-20s%s\n", "-d, --yt-dl", "Download the audio of a YouTube video by title");
-			SDL_Log("  %-20s%s\n", "-m, --music", "Play one of the downloaded musics");
-			SDL_Log("  %-20s%s\n", "-M, --lm", "List downloaded musics");
 			return false;
 
 		case 's':
@@ -155,7 +133,7 @@ bool parseOpts( int argc,
 
 			break;
 
-		case 'L':
+		case 'l':
 			if (!SDL_EnumerateDirectory(shaderDir, log_scenes, NULL)) {
 				SDL_Log("Couldn't list scenes: %s\n", SDL_GetError());
 			}
@@ -177,40 +155,12 @@ bool parseOpts( int argc,
 
 		case 'd':
 			char download[PATH_SIZE] = { 0 };
-			SDL_snprintf(download, PATH_SIZE, DOWNLOAD_COMMAND, musicDir, optarg);
+			SDL_snprintf(download, PATH_SIZE, DOWNLOAD_COMMAND, optarg);
 
 			if (system(download) == -1) {
 				SDL_Log("Couldn't download from youtube: %s\n", strerror(errno));
 			}
 
-			return false;
-
-		case 'm':
-			fileExists = false;
-			if (!SDL_EnumerateDirectory(musicDir, check_file_exist, optarg)) {
-				SDL_Log("Couldn't fetch musics: %s\n", SDL_GetError());
-				return false;
-			}
-
-			if (!fileExists) {
-				SDL_Log("Music Doesn't exist!\n"
-					"Available musics:\n");
-
-				if (!SDL_EnumerateDirectory(musicDir, log_files_in_dir, NULL)) {
-					SDL_Log("Couldn't list musics: %s\n", SDL_GetError());
-					return false;
-				}
-				return false;
-			}
-
-			SDL_snprintf(musicPath, PATH_SIZE, "%s/%s", musicDir, optarg);
-			musicSet = true;
-			break;
-
-		case 'M':
-			if (!SDL_EnumerateDirectory(musicDir, log_files_in_dir, NULL)) {
-				SDL_Log("Couldn't list musics: %s\n", SDL_GetError());
-			}
 			return false;
 
 		case '?':
@@ -235,10 +185,8 @@ bool parseOpts( int argc,
 		SDL_free(files);
 	}
 
-	if (musicSet) return true;
-
 	if (optind < argc) {
-		SDL_snprintf(musicPath, PATH_SIZE, "%s", argv[optind]);
+		*musicPath = argv[optind];
 	} else {
 		SDL_Log("Usage: %s [OPTIONS] <mp3 file>\n"
 			"run '%s -h' for help\n", argv[0], argv[0]);
