@@ -1,4 +1,7 @@
-<img src="icon.png" alt="fv icon" width="256" height="256">
+<div align="center">
+<img src="icon.png" alt="fv" width="256">
+</div>
+
 **FreeVisualizer is A cute, tiny, bloat-free music visualizer for average music enjoyer**
 ## Dependencies
 debian-based distros:
