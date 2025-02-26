@@ -26,4 +26,5 @@
     (State) {  \
 	.winWidth = 1000,	\
 	.winHeight = 1000,	\
+	.fullscreen = false,	\
     }

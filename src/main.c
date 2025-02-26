@@ -27,9 +27,14 @@ typedef struct
 	// GPU
 	SDL_GPUDevice* gpuDevice;
 	SDL_GPUGraphicsPipeline* graphicsPipeline;
+	char fragShaderPath[PATH_SIZE];
+	char vertShaderPath[PATH_SIZE];
 
 	// Audio
 	SDL_AudioStream* stream;
+
+	// Music path
+	char* musicPath;
 } State;
 
 static double time = 0;
@@ -85,16 +90,18 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
 
-	// paths
-	char* musicPath = NULL;
-	char fragShaderPath[PATH_SIZE] = { 0 };
-	char vertShaderPath[PATH_SIZE] = { 0 };
-
-	// Window modes
-	bool fullscreen = false;
+	// Initializing app state
+	State state = DEFAULT_STATE;
+	State* statep = SDL_malloc(sizeof(State));
+	if (!statep) {
+		SDL_Log("Couldn't allocate memory for the state of the app: %s", SDL_GetError());
+		cleanUp = false;
+		return SDL_APP_FAILURE;
+	}
+	*appstate = statep;
 
 	// Handling cli arguments
-	if (!parseOpts(argc, argv, &musicPath, fragShaderPath, vertShaderPath, PATH_SIZE, &fullscreen)) {
+	if (!parseOpts(argc, argv, &state.musicPath, state.fragShaderPath, state.vertShaderPath, PATH_SIZE, &state.fullscreen)) {
 		cleanUp = false;
 		return SDL_APP_SUCCESS;
 	}
@@ -105,19 +112,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	// Initializing app state
-	State state = DEFAULT_STATE;
-	state.fullscreen = fullscreen;
-	State* statep = SDL_malloc(sizeof(State));
-	if (!statep) {
-		SDL_Log("Couldn't allocate memory for the state of the app: %s", SDL_GetError());
-		cleanUp = false;
-		return SDL_APP_FAILURE;
-	}
-	*appstate = statep;
-
 	SDL_WindowFlags windowFlags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS;
-	if (fullscreen) windowFlags |= SDL_WINDOW_FULLSCREEN;
+	if (state.fullscreen) windowFlags |= SDL_WINDOW_FULLSCREEN;
 	if (!(state.window = SDL_CreateWindow("FreeVisualizer", state.winWidth, state.winHeight, windowFlags))) {
 		SDL_Log("Couldn't create window: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
@@ -136,13 +132,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* vertShader = loadShader(state.gpuDevice, SDL_GPU_SHADERSTAGE_VERTEX, vertShaderPath, 0, 0, 0, 0);
+	SDL_GPUShader* vertShader = loadShader(state.gpuDevice, SDL_GPU_SHADERSTAGE_VERTEX, state.vertShaderPath, 0, 0, 0, 0);
 	if (!vertShader) {
 		SDL_Log("Couldn't create vertex shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
 	}
 
-	SDL_GPUShader* fragShader = loadShader(state.gpuDevice,SDL_GPU_SHADERSTAGE_FRAGMENT,  fragShaderPath, 0, 1, 0, 0);
+	SDL_GPUShader* fragShader = loadShader(state.gpuDevice,SDL_GPU_SHADERSTAGE_FRAGMENT,  state.fragShaderPath, 0, 1, 0, 0);
 	if (!fragShader) {
 		SDL_Log("Couldn't create fragment shader: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
@@ -180,8 +176,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return SDL_APP_FAILURE;
 	}
 
-	if (mpg123_open(mh, musicPath) != MPG123_OK) {
-		SDL_Log("Couldn't open mp3 file: %s", musicPath);
+	if (mpg123_open(mh, state.musicPath) != MPG123_OK) {
+		SDL_Log("Couldn't open mp3 file: %s", state.musicPath);
 		return 1;
 	}
 
