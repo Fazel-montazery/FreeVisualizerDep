@@ -33,7 +33,8 @@ typedef struct
 	// Audio
 	SDL_AudioStream* stream;
 
-	// Music path
+	// Music
+	long rate;
 	char* musicPath;
 } State;
 
@@ -181,19 +182,18 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return 1;
 	}
 
-	long rate;
 	int channels, encoding;
-	if (mpg123_getformat(mh, &rate, &channels, &encoding) != MPG123_OK) {
+	if (mpg123_getformat(mh, &state.rate, &channels, &encoding) != MPG123_OK) {
 		SDL_Log("Couldn't get audio format");
 		return 1;
 	}
 
-	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", rate, channels, encoding);
+	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", state.rate, channels, encoding);
 
 	SDL_AudioSpec spec = {
 		.channels = channels,
 		.format = SDL_AUDIO_S16,
-		.freq = rate
+		.freq = state.rate
 	};
 
 	state.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
@@ -231,6 +231,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 		} else if (event->key.scancode == SDL_SCANCODE_F) {
 			state->fullscreen = !state->fullscreen;
 			SDL_SetWindowFullscreen(state->window, state->fullscreen);
+		} else if (event->key.scancode == SDL_SCANCODE_RIGHT) {
+			if (mpg123_seek(mh, MUSIC_CONTROLL_COEFFICIENT * state->rate, SEEK_CUR) < 0) {
+				SDL_Log("Couldn't controll the playback");
+			}
+		} else if (event->key.scancode == SDL_SCANCODE_LEFT) {
+			if (mpg123_seek(mh, -MUSIC_CONTROLL_COEFFICIENT * state->rate, SEEK_CUR) < 0) {
+				SDL_Log("Couldn't controll the playback");
+			}
 		}
 	}
 

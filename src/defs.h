@@ -1,6 +1,7 @@
 #pragma once
 
 #define MUSIC_BUFFER_SIZE 4096
+#define MUSIC_CONTROLL_COEFFICIENT 2
 
 #define PATH_SIZE 1024
 #define DATA_DIR ".FreeVisualizer"

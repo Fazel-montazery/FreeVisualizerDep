@@ -110,6 +110,7 @@ bool parseOpts( int argc,
 			SDL_Log("  %-20s%s\n", "-l, --ls", "List scenes");
 			SDL_Log("  %-20s%s\n", "-S, --yt-search", "Search youtube and return 10 results");
 			SDL_Log("  %-20s%s\n", "-d, --yt-dl", "Download the audio of a YouTube video by title");
+			SDL_Log("  %-20s%s\n", "-f, --fullscreen", "Start in fullscreen mode");
 			return false;
 
 		case 's':
