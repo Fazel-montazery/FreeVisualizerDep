@@ -37,7 +37,7 @@ static SDL_EnumerationResult SDLCALL check_file_exist(void *userdata, const char
 	return SDL_ENUM_CONTINUE;
 }
 
-#define OP_STRING "hs:lS:d:"
+#define OP_STRING "hs:lS:d:f"
 
 static const struct option opts[] = {
 	{"help", no_argument, 0, 'h'},
@@ -45,6 +45,7 @@ static const struct option opts[] = {
 	{"ls", no_argument, 0, 'l'},
 	{"yt-search", required_argument, 0, 'S'},
 	{"yt-dl", required_argument, 0, 'd'},
+	{"fullscreen", no_argument, 0, 'f'},
 	{0, 0, 0, 0}
 };
 
@@ -72,7 +73,8 @@ bool parseOpts( int argc,
 		char** musicPath,
 		char* fragShaderPathBuf,
 		char* vertShaderPathBuf,
-		size_t bufferSiz
+		size_t bufferSiz,
+		bool* fullscreen
 )
 {
 	const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
@@ -92,6 +94,8 @@ bool parseOpts( int argc,
 	bool sceneSet = false;
 	int opt;
 	int indx = 0;
+
+	*fullscreen = false;
 
 	while ((opt = getopt_long(argc, argv, OP_STRING, opts, &indx)) != -1) {
 		switch (opt) {
@@ -162,6 +166,10 @@ bool parseOpts( int argc,
 			}
 
 			return false;
+
+		case 'f':
+			*fullscreen = true;
+			break;
 
 		case '?':
 			return false;

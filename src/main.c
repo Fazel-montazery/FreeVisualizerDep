@@ -90,8 +90,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	char fragShaderPath[PATH_SIZE] = { 0 };
 	char vertShaderPath[PATH_SIZE] = { 0 };
 
+	// Window modes
+	bool fullscreen = false;
+
 	// Handling cli arguments
-	if (!parseOpts(argc, argv, &musicPath, fragShaderPath, vertShaderPath, PATH_SIZE)) {
+	if (!parseOpts(argc, argv, &musicPath, fragShaderPath, vertShaderPath, PATH_SIZE, &fullscreen)) {
 		cleanUp = false;
 		return SDL_APP_SUCCESS;
 	}
@@ -104,6 +107,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
 	// Initializing app state
 	State state = DEFAULT_STATE;
+	state.fullscreen = fullscreen;
 	State* statep = SDL_malloc(sizeof(State));
 	if (!statep) {
 		SDL_Log("Couldn't allocate memory for the state of the app: %s", SDL_GetError());
@@ -112,7 +116,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	}
 	*appstate = statep;
 
-	const SDL_WindowFlags windowFlags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS;
+	SDL_WindowFlags windowFlags = SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_FOCUS;
+	if (fullscreen) windowFlags |= SDL_WINDOW_FULLSCREEN;
 	if (!(state.window = SDL_CreateWindow("FreeVisualizer", state.winWidth, state.winHeight, windowFlags))) {
 		SDL_Log("Couldn't create window: %s", SDL_GetError());
 		return SDL_APP_FAILURE;
