@@ -1,5 +1,5 @@
-# FreeVisualizer
-**A cute, tiny, bloat-free music visualizer for average music enjoyer**
+<img src="icon.png" alt="fv icon" width="256" height="256">
+**FreeVisualizer is A cute, tiny, bloat-free music visualizer for average music enjoyer**
 ## Dependencies
 debian-based distros:
 ```bash
