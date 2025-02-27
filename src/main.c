@@ -34,7 +34,6 @@ typedef struct
 	SDL_AudioStream* stream;
 
 	// Music
-	long rate;
 	char* musicPath;
 } State;
 
@@ -85,6 +84,13 @@ static void SDLCALL audio_proccess_callback(void *userdata, const SDL_AudioSpec 
 
 	avg_amp = avg_amplitude;
 	peak_amp = peak_amplitude;
+}
+
+static void seekTo(int sec, int whence)
+{
+	if (sec == 0) return;
+	off_t offset = mpg123_timeframe(mh, (sec < 0) ? -sec : sec);
+	mpg123_seek_frame(mh, (sec < 0) ? -offset : offset, whence);
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
@@ -182,18 +188,19 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return 1;
 	}
 
+	long rate;
 	int channels, encoding;
-	if (mpg123_getformat(mh, &state.rate, &channels, &encoding) != MPG123_OK) {
+	if (mpg123_getformat(mh, &rate, &channels, &encoding) != MPG123_OK) {
 		SDL_Log("Couldn't get audio format");
 		return 1;
 	}
 
-	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", state.rate, channels, encoding);
+	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", rate, channels, encoding);
 
 	SDL_AudioSpec spec = {
 		.channels = channels,
 		.format = SDL_AUDIO_S16,
-		.freq = state.rate
+		.freq = rate
 	};
 
 	state.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
@@ -232,13 +239,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 			state->fullscreen = !state->fullscreen;
 			SDL_SetWindowFullscreen(state->window, state->fullscreen);
 		} else if (event->key.scancode == SDL_SCANCODE_RIGHT) {
-			if (mpg123_seek(mh, MUSIC_CONTROLL_COEFFICIENT * state->rate, SEEK_CUR) < 0) {
-				SDL_Log("Couldn't controll the playback");
-			}
+			seekTo(MUSIC_CONTROL_SLOW_SEC, SEEK_CUR);
 		} else if (event->key.scancode == SDL_SCANCODE_LEFT) {
-			if (mpg123_seek(mh, -MUSIC_CONTROLL_COEFFICIENT * state->rate, SEEK_CUR) < 0) {
-				SDL_Log("Couldn't controll the playback");
-			}
+			seekTo(-MUSIC_CONTROL_SLOW_SEC, SEEK_CUR);
+		} else if (event->key.scancode == SDL_SCANCODE_UP) {
+			seekTo(MUSIC_CONTROL_FAST_SEC, SEEK_CUR);
+		} else if (event->key.scancode == SDL_SCANCODE_DOWN) {
+			seekTo(-MUSIC_CONTROL_FAST_SEC, SEEK_CUR);
 		}
 	}
 
