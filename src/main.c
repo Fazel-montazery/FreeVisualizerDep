@@ -35,6 +35,8 @@ typedef struct
 
 	// Music
 	char* musicPath;
+	long rate;
+	int length;
 } State;
 
 static double time = 0;
@@ -93,9 +95,19 @@ static void seekTo(int sec, int whence)
 	mpg123_seek_frame(mh, (sec < 0) ? -offset : offset, whence);
 }
 
+static void clearLineAnsi()
+{
+	printf("\033[2K\r");
+	fflush(stdout);
+}
+
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
 	SDL_SetAppMetadata("FreeVisualizer", "1.0", "com.free.vis");
+
+	// Hide terminal curser
+	printf("\033[?25l");
+	fflush(stdout);
 
 	// Initializing app state
 	State state = DEFAULT_STATE;
@@ -188,19 +200,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 		return 1;
 	}
 
-	long rate;
 	int channels, encoding;
-	if (mpg123_getformat(mh, &rate, &channels, &encoding) != MPG123_OK) {
+	if (mpg123_getformat(mh, &state.rate, &channels, &encoding) != MPG123_OK) {
 		SDL_Log("Couldn't get audio format");
 		return 1;
 	}
 
-	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", rate, channels, encoding);
+	state.length = mpg123_length(mh) / state.rate;
+
+	SDL_Log("Music format: %ld Hz, %d channels, encoding: %d\n", state.rate, channels, encoding);
 
 	SDL_AudioSpec spec = {
 		.channels = channels,
 		.format = SDL_AUDIO_S16,
-		.freq = rate
+		.freq = state.rate
 	};
 
 	state.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_stream_callback, NULL);
@@ -258,6 +271,14 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 	State* state = appstate;
 
+	int currentPosMusic = mpg123_tell(mh) / state->rate;
+	clearLineAnsi();
+	fprintf(stdout, "[%s] %d/%d seconds",
+			(SDL_AudioStreamDevicePaused(state->stream)) ? "Paused" : "Playing",
+			(currentPosMusic <= state->length) ? currentPosMusic : state->length,
+			state->length);
+	fflush(stdout);
+
 	time = ((double) SDL_GetTicks()) / 1000.0;
 	SDL_GetWindowSizeInPixels(state->window, &state->winWidth, &state->winHeight);
 
@@ -314,4 +335,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
 
 		SDL_free(state);
 	}
+
+	printf("\033[?25h");
+	fflush(stdout);
 }
