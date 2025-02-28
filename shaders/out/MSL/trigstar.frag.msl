@@ -6,6 +6,7 @@ using namespace metal;
 struct type_UniformBlock
 {
     float2 Resolution;
+    float2 Mouse;
     float Time;
     float PeakAmp;
     float AvgAmp;

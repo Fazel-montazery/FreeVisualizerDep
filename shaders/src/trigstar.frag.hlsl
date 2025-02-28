@@ -3,6 +3,7 @@
 cbuffer UniformBlock : register(b0, space3)
 {
 	float2 Resolution;
+	float2 Mouse;
 	float Time;
 	float PeakAmp;
 	float AvgAmp;
@@ -41,7 +42,6 @@ float4 main(Input input) : SV_Target0
 	float3 finalColor = 0.0;
 
 	// Main part
-
 	for (int i = 0.0; i < 4.0; i++) { 
 		uv = frac(uv * 2.0) - 0.5;
 		float3 color = sdEquilateralTriangle(uv, 0.2) * exp(-length(uv0));

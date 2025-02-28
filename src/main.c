@@ -11,6 +11,7 @@
 typedef struct
 {
 	float width, height;
+	float mouseX, mouseY;
 	float time;
 	float peak_amp;
 	float avg_amp;
@@ -282,6 +283,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 	time = ((double) SDL_GetTicks()) / 1000.0;
 	SDL_GetWindowSizeInPixels(state->window, &state->winWidth, &state->winHeight);
 
+	float mouseX = 0.0, mouseY = 0.0;
+	SDL_GetMouseState(&mouseX, &mouseY);
+
 	SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(state->gpuDevice);
 	if (cmdbuf == NULL)
 	{
@@ -307,7 +311,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 		SDL_BindGPUGraphicsPipeline(renderPass, state->graphicsPipeline);
 
 		// Uploading uniforms
-		SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {state->winWidth, state->winHeight, time, peak_amp, avg_amp} , sizeof(uniformBlock));
+		SDL_PushGPUFragmentUniformData(cmdbuf, 0, &(uniformBlock) {state->winWidth, state->winHeight, mouseX, mouseY, time, peak_amp, avg_amp} , sizeof(uniformBlock));
 
 		SDL_DrawGPUPrimitives(renderPass, 4, 1, 0, 0);
 
