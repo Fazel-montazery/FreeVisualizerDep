@@ -1,0 +1,86 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_UniformBlock
+{
+    float2 Resolution;
+    float2 Mouse;
+    float Time;
+    float PeakAmp;
+    float AvgAmp;
+};
+
+constant float3 _61 = {};
+
+struct main0_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+fragment main0_out main0(constant type_UniformBlock& UniformBlock [[buffer(0)]], float4 gl_FragCoord [[position]])
+{
+    main0_out out = {};
+    float2 _72 = ((gl_FragCoord.xy * 2.0) - UniformBlock.Resolution) / float2(UniformBlock.Resolution.y);
+    _72.y = -_72.y;
+    float3 _80 = fast::normalize(float3(_72 * 1.0, -1.0));
+    float3 _87;
+    _87 = _61;
+    float _83;
+    float3 _88;
+    float3 _225;
+    float _82 = 0.0;
+    int _85 = 0;
+    for (;;)
+    {
+        if (_85 < 15)
+        {
+            float3 _93 = float3(0.0, 0.0, 3.0) + (_80 * _82);
+            float _97 = sin(UniformBlock.Time);
+            float _98 = cos(UniformBlock.Time);
+            float2 _103 = float2x2(float2(_98, -_97), float2(_97, _98)) * _93.xz;
+            float3 _104 = float3(_103.x, _93.y, _103.y);
+            float3 _110 = (_104 * 2.0) + float3(UniformBlock.Time);
+            float3 _111 = floor(_110);
+            float3 _112 = fract(_110);
+            float3 _116 = (_112 * _112) * (float3(3.0) - (_112 * 2.0));
+            float3 _120 = fract((_111 * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _131 = fract(((_111 + float3(1.0, 0.0, 0.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _142 = fract(((_111 + float3(0.0, 1.0, 0.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _153 = fract(((_111 + float3(1.0, 1.0, 0.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _164 = fract(((_111 + float3(0.0, 0.0, 1.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _175 = fract(((_111 + float3(1.0, 0.0, 1.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _186 = fract(((_111 + float3(0.0, 1.0, 1.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float3 _197 = fract(((_111 + float3(1.0)) * 0.31830990314483642578125) + float3(0.5)) * 0.31830990314483642578125;
+            float _204 = _116.x;
+            float _207 = _116.y;
+            float _214 = mix(mix(mix(fract((_120.x + _120.y) + _120.z), fract((_131.x + _131.y) + _131.z), _204), mix(fract((_142.x + _142.y) + _142.z), fract((_153.x + _153.y) + _153.z), _204), _207), mix(mix(fract((_164.x + _164.y) + _164.z), fract((_175.x + _175.y) + _175.z), _204), mix(fract((_186.x + _186.y) + _186.z), fract((_197.x + _197.y) + _197.z), _204), _207), _116.z) + 1.0;
+            float _218 = length(_104) - ((1.0 + UniformBlock.PeakAmp) * (_214 * 0.5));
+            _83 = _82 + _218;
+            _88 = float3(_83);
+            if (_218 <= 0.00999999977648258209228515625)
+            {
+                _225 = _88;
+                break;
+            }
+            if (_83 > 10.0)
+            {
+                _225 = _88;
+                break;
+            }
+            _82 = _83;
+            _85++;
+            _87 = _88;
+            continue;
+        }
+        else
+        {
+            _225 = _87;
+            break;
+        }
+    }
+    out.out_var_SV_Target0 = float4((_225 * 0.20000000298023223876953125) * (float3(0.61000001430511474609375, 0.4979999959468841552734375, 0.64999997615814208984375) + (float3(0.388000011444091796875, 0.4979999959468841552734375, 0.3499999940395355224609375) * cos(((float3(0.5299999713897705078125, 0.4979999959468841552734375, 0.62000000476837158203125) * length(_72)) + float3(3.4379999637603759765625, 3.01200008392333984375, 4.025000095367431640625)) * 6.283185482025146484375))), 1.0);
+    return out;
+}
+

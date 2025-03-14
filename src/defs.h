@@ -3,6 +3,7 @@
 #define MUSIC_BUFFER_SIZE 4096
 #define MUSIC_CONTROL_SLOW_SEC 2
 #define MUSIC_CONTROL_FAST_SEC 5
+#define CURSOR_DEADLINE 3
 
 #define PATH_SIZE 1024
 #define DATA_DIR ".FreeVisualizer"

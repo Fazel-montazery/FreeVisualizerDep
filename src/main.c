@@ -19,11 +19,12 @@ typedef struct
 
 typedef struct
 {
-	// Windowing
+	// Window
 	SDL_Window* window;
 	Sint32 winWidth;
 	Sint32 winHeight;
 	bool fullscreen;
+	bool cursorHiddne;
 
 	// GPU
 	SDL_GPUDevice* gpuDevice;
@@ -43,6 +44,9 @@ typedef struct
 static double time = 0;
 static float peak_amp = 0;
 static float avg_amp = 0;
+
+static double preTime = 0;
+static float mouseXPre = 0, mouseYPre = 0;
 
 static mpg123_handle *mh = NULL;
 
@@ -283,8 +287,25 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 	time = ((double) SDL_GetTicks()) / 1000.0;
 	SDL_GetWindowSizeInPixels(state->window, &state->winWidth, &state->winHeight);
 
-	float mouseX = 0.0, mouseY = 0.0;
+	float mouseX, mouseY;
 	SDL_GetMouseState(&mouseX, &mouseY);
+
+	float deltaMouseX = mouseX - mouseXPre;
+	float deltaMouseY = mouseY - mouseYPre;
+
+	mouseXPre = mouseX;
+	mouseYPre = mouseY;
+
+	if (deltaMouseX != 0 || deltaMouseY != 0) {
+		state->cursorHiddne = false;
+		SDL_ShowCursor();
+		preTime = time;
+	}
+
+	if (!state->cursorHiddne && (time - preTime) > CURSOR_DEADLINE) {
+		state->cursorHiddne = true;
+		SDL_HideCursor();
+	}
 
 	SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(state->gpuDevice);
 	if (cmdbuf == NULL)

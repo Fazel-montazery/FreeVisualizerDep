@@ -41,6 +41,7 @@ clean: ${TARGET}
 install: ${TARGET}
 	install -d ${BINDIR}
 	install -m 755 ${TARGET} ${BINDIR}/${TARGET}
+	rm -rf ${SHADERDIR}
 	install -d ${SHADERDIR}
 	install -m 644  ${SHADERS} ${SHADERDIR}/
 
